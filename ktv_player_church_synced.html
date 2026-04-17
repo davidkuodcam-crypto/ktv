@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新高教會愛心辦桌 KTV主題曲</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #1e1b4b;
+            color: white;
+            overflow: hidden; 
+        }
+
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+
+        .lyric-line {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0.5;
+            transform: scale(0.95);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            padding: 0.5rem 1rem;
+            border-radius: 1rem;
+        }
+
+        .lyric-active {
+            opacity: 1;
+            transform: scale(1.1);
+            color: #fb923c;
+            font-weight: 900;
+            text-shadow: 0 0 15px rgba(251, 146, 60, 0.6), 0 2px 4px rgba(0,0,0,0.8);
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .lyric-past {
+            opacity: 0.3;
+            transform: scale(0.9);
+        }
+        
+        #lyrics-container {
+            mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col items-center justify-between">
+
+    <div class="w-full max-w-4xl p-4 flex flex-col items-center space-y-3 z-10 bg-indigo-950/90 backdrop-blur-md border-b border-indigo-800">
+        <h1 class="text-2xl md:text-3xl font-bold tracking-wider text-orange-300 drop-shadow-md">⛪ 新高教會愛心辦桌 KTV主題曲</h1>
+        
+        <div class="flex flex-wrap justify-center items-center gap-4 w-full">
+            <input type="file" id="fileInput" accept="video/mp4,audio/*,video/*" class="hidden" />
+            
+            <label class="flex items-center gap-2 cursor-pointer bg-indigo-800 hover:bg-indigo-700 text-white py-2 px-6 rounded-full shadow-lg transition duration-200 text-sm md:text-base font-bold">
+                <input type="checkbox" id="loopToggle" class="w-4 h-4 accent-orange-500">
+                🔁 重複播放
+            </label>
+            
+            <button id="toggleEditBtn" class="bg-pink-600 hover:bg-pink-500 text-white py-2 px-6 rounded-full shadow-lg transition duration-200 text-sm md:text-base font-bold">
+                🛠️ 逐行微調模式
+            </button>
+            
+            <button id="exportBtn" class="bg-green-600 hover:bg-green-500 text-white py-2 px-6 rounded-full shadow-lg transition duration-200 text-sm md:text-base font-bold">
+                💾 匯出最新時間軸
+            </button>
+
+            <div class="flex items-center gap-2 bg-indigo-900/50 px-4 py-2 rounded-full border border-indigo-700 opacity-80 hover:opacity-100 transition">
+                <span class="text-xs text-indigo-300 font-bold">全體平移:</span>
+                <button id="btnMinus" class="bg-indigo-600 hover:bg-indigo-500 px-2 py-0.5 rounded text-white font-mono text-xs">-0.5s</button>
+                <button id="btnPlus" class="bg-indigo-600 hover:bg-indigo-500 px-2 py-0.5 rounded text-white font-mono text-xs">+0.5s</button>
+            </div>
+        </div>
+
+        <div class="w-full flex items-center gap-4 mt-1 px-4 py-3 bg-indigo-900/80 rounded-2xl border border-indigo-600 shadow-xl">
+            <button id="customPlayBtn" class="bg-orange-600 hover:bg-orange-500 text-white w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition duration-200 text-lg">
+                ▶️
+            </button>
+            <div class="flex flex-col flex-1 gap-1">
+                <div class="flex justify-between text-[10px] font-mono text-indigo-300 px-1">
+                    <span id="currentTimeDisplay">00:00</span>
+                    <span id="durationDisplay">00:00</span>
+                </div>
+                <input type="range" id="seekSlider" class="w-full accent-orange-500 h-1.5 bg-indigo-950 rounded-lg appearance-none cursor-pointer" value="0" min="0" max="100" step="0.1">
+            </div>
+        </div>
+
+        <video id="mediaPlayer" class="hidden"></video>
+        <div id="errorMessage" class="text-red-400 text-xs font-bold hidden mt-1 text-center bg-red-950/50 px-4 py-1 rounded-full w-full"></div>
+    </div>
+
+    <div id="lyrics-container" class="flex-1 w-full max-w-4xl overflow-y-auto px-4 py-32 flex flex-col items-center space-y-6 relative scroll-smooth">
+        <div id="spacer-top" class="h-32"></div>
+        <div id="spacer-bottom" class="h-64"></div>
+    </div>
+
+    <div id="exportModal" class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center hidden">
+        <div class="bg-indigo-950 border border-indigo-700 p-6 rounded-xl max-w-2xl w-full mx-4 shadow-2xl flex flex-col max-h-[90vh]">
+            <h2 class="text-xl md:text-2xl font-bold text-orange-300 mb-2">💾 最新時間軸</h2>
+            <textarea id="exportText" class="w-full flex-1 min-h-[300px] bg-slate-900 text-green-400 p-4 font-mono text-sm rounded mb-4" readonly></textarea>
+            <button onclick="document.getElementById('exportModal').classList.add('hidden')" class="bg-orange-600 hover:bg-orange-500 px-6 py-3 rounded-full font-bold text-white w-full">關閉</button>
+        </div>
+    </div>
+
+    <script>
+        const lyricsData = [
+            { time: 0.0, text: "🎵 (歡樂前奏) 🎵" },
+            { time: 0.5, text: "一桌一桌排開來" },
+            { time: 3.5, text: "名字菜色都寫在" },
+            { time: 6.6, text: "今天不是在點菜" },
+            { time: 10.7, text: "是愛心在報到" },
+            { time: 14.9, text: "大維家牛肉炒青菜" },
+            { time: 18.0, text: "雞肉炒蝦，一盤一盤來" },
+            { time: 22.3, text: "和宏家炒麵跟米粉" },
+            { time: 25.0, text: "蘿蔔玉米排骨湯香到心裡寬" },
+            { time: 29.0, text: "綉美端出白木耳蓮子甜湯" },
+            { time: 32.0, text: "一碗接一碗西瓜甜在旁" },
+            { time: 36.4, text: "麗琴來上香烤軟絲飄香" },
+            { time: 40.0, text: "月亮蝦餅一上桌眼睛都發光" },
+            { time: 45.3, text: "新高教會辦桌 開動啦" },
+            { time: 49.0, text: "一家一道愛心 菜到齊啦" },
+            { time: 53.0, text: "歡聲和笑語 一起長大" },
+            { time: 56.6, text: "祝福像盤子一直添不完啦" },
+            { time: 59.9, text: "你來我來 大家都到了" },
+            { time: 63.3, text: "一口一口都是感謝啊" },
+            { time: 67.0, text: "預備說聲感謝 主恩典大" },
+            { time: 70.5, text: "新高教會聚餐 最好吃啦" },
+            { time: 76.5, text: "🎵 (間奏) 🎵" },
+            { time: 78.9, text: "清雲清慧綜合壽司好美" },
+            { time: 82.5, text: "泰式海鮮涼拌酸辣有滋味" },
+            { time: 86.0, text: "水果蛋糕一百分小朋友排隊" },
+            { time: 89.0, text: "甜在心甜在嘴甜在全教會" },
+            { time: 93.0, text: "立夫的鹹水鴨有一整盤" },
+            { time: 96.5, text: "麗敏的三色蛋顏色排成串" },
+            { time: 99.5, text: "涼拌木耳清爽一直就停不下" },
+            { time: 103.0, text: "大家邊聊邊夾幸福滿桌灑" },
+            { time: 107.5, text: "郭俞的客家小炒味道剛剛好" },
+            { time: 110.5, text: "再來一盤青菜健康不會少" },
+            { time: 114.5, text: "慶祥秀珍 香蔥紅燒蝦" },
+            { time: 119.0, text: "那香味一飄過 全場都在誇" },
+            { time: 123.5, text: "新高教會辦桌 開動啦" },
+            { time: 127.0, text: "一家一道愛心 菜到齊啦" },
+            { time: 131.0, text: "歡聲和笑語 一起長大" },
+            { time: 134.0, text: "祝福像盤子一直添不完啦" },
+            { time: 138.0, text: "你來我來 大家都到了" },
+            { time: 141.0, text: "一口一口都是感謝啊" },
+            { time: 145.0, text: "預備說聲感謝 主恩典大" },
+            { time: 148.5, text: "新高教會聚餐 最好吃啦" },
+            { time: 154.0, text: "🎵 (間奏) 🎵" },
+            { time: 156.0, text: "進福麗靜滷味端上桌" },
+            { time: 159.0, text: "涼拌水果蔬菜清爽剛剛好" },
+            { time: 163.5, text: "育三的烤鴨排好排滿" },
+            { time: 165.5, text: "國焰芬彥沙拉涼拌繽紛像圖畫" },
+            { time: 171.0, text: "佩珊的芭樂 脆又甜" },
+            { time: 173.5, text: "大B詩凡家把飲料裝滿" },
+            { time: 178.0, text: "從門口到桌邊 全是家人" },
+            { time: 181.0, text: "肚子填滿心 被愛填滿" },
+            { time: 187.0, text: "新高教會辦桌 開動啦" },
+            { time: 190.5, text: "一家一道愛心 菜到齊啦" },
+            { time: 194.5, text: "歡聲和笑語 一起長大" },
+            { time: 198.0, text: "祝福像盤子一直添不完啦" },
+            { time: 201.3, text: "你來我來 大家都到了" },
+            { time: 204.7, text: "一口一口都是感謝啊" },
+            { time: 208.4, text: "預備說聲感謝 主恩典大" },
+            { time: 211.9, text: "新高教會聚餐 最好吃啦" },
+            { time: 220.0, text: "新高教會大家 最幸福啦" },
+            { time: 228.0, text: "🎵 (音樂結束) 🎵" }
+        ];
+
+        const lyricsContainer = document.getElementById('lyrics-container');
+        const spacerBottom = document.getElementById('spacer-bottom');
+        const mediaPlayer = document.getElementById('mediaPlayer');
+        const fileInput = document.getElementById('fileInput');
+        const loopToggle = document.getElementById('loopToggle');
+        const customPlayBtn = document.getElementById('customPlayBtn');
+        const seekSlider = document.getElementById('seekSlider');
+        const currentTimeDisplay = document.getElementById('currentTimeDisplay');
+        const durationDisplay = document.getElementById('durationDisplay');
+        const errorMessage = document.getElementById('errorMessage');
+
+        let isEditMode = false;
+        let activeIndex = -1;
+        let isDragging = false;
+
+        // 自動載入 GitHub 資料夾內的 mp3
+        window.addEventListener('DOMContentLoaded', () => {
+            mediaPlayer.src = 'ktv_player_church_synced.mp3';
+            mediaPlayer.load();
+        });
+
+        customPlayBtn.addEventListener('click', () => {
+            if (mediaPlayer.paused) {
+                mediaPlayer.play().catch(e => {
+                    errorMessage.textContent = "請點擊頁面後再播放音樂。";
+                    errorMessage.classList.remove('hidden');
+                });
+            } else {
+                mediaPlayer.pause();
+            }
+        });
+
+        seekSlider.addEventListener('input', () => {
+            mediaPlayer.currentTime = seekSlider.value;
+            syncLyrics(mediaPlayer.currentTime);
+        });
+
+        seekSlider.addEventListener('mousedown', () => isDragging = true);
+        seekSlider.addEventListener('mouseup', () => isDragging = false);
+
+        mediaPlayer.addEventListener('play', () => customPlayBtn.innerHTML = "⏸️");
+        mediaPlayer.addEventListener('pause', () => customPlayBtn.innerHTML = "▶️");
+        mediaPlayer.addEventListener('loadedmetadata', () => {
+            seekSlider.max = mediaPlayer.duration;
+            durationDisplay.textContent = formatTime(mediaPlayer.duration);
+        });
+
+        mediaPlayer.addEventListener('timeupdate', () => {
+            syncLyrics(mediaPlayer.currentTime);
+            if (!isDragging) {
+                seekSlider.value = mediaPlayer.currentTime;
+                currentTimeDisplay.textContent = formatTime(mediaPlayer.currentTime);
+            }
+        });
+
+        loopToggle.addEventListener('change', (e) => mediaPlayer.loop = e.target.checked);
+
+        document.getElementById('btnMinus').addEventListener('click', () => {
+            lyricsData.forEach(l => l.time = Math.max(0, l.time - 0.5));
+            updateAllTimeDisplays();
+        });
+
+        document.getElementById('btnPlus').addEventListener('click', () => {
+            lyricsData.forEach(l => l.time += 0.5);
+            updateAllTimeDisplays();
+        });
+
+        document.getElementById('toggleEditBtn').addEventListener('click', () => {
+            isEditMode = !isEditMode;
+            document.querySelectorAll('.edit-controls').forEach(el => el.classList.toggle('hidden', !isEditMode));
+        });
+
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const output = "const lyricsData = [\n" + lyricsData.map(l => `    { time: ${l.time.toFixed(1)}, text: "${l.text}" }`).join(",\n") + "\n];";
+            document.getElementById('exportText').value = output;
+            document.getElementById('exportModal').classList.remove('hidden');
+        });
+
+        window.adjustLineTime = function(index, delta) {
+            lyricsData[index].time = Math.max(0, lyricsData[index].time + delta);
+            document.getElementById(`time-display-${index}`).textContent = lyricsData[index].time.toFixed(1) + 's';
+        };
+
+        function updateAllTimeDisplays() {
+            lyricsData.forEach((l, i) => {
+                const el = document.getElementById(`time-display-${i}`);
+                if (el) el.textContent = l.time.toFixed(1) + 's';
+            });
+        }
+
+        function initLyrics() {
+            lyricsContainer.innerHTML = '<div id="spacer-top" class="h-32"></div><div id="spacer-bottom" class="h-64"></div>';
+            lyricsData.forEach((lyric, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'w-full flex flex-col items-center relative';
+                wrapper.innerHTML = `
+                    <p id="lyric-${index}" class="lyric-line text-xl md:text-3xl lg:text-4xl font-bold text-center w-full px-4">${lyric.text}</p>
+                    <div class="edit-controls hidden flex items-center gap-2 mt-2 mb-4 bg-indigo-900/80 px-4 py-1 rounded-full border border-indigo-700">
+                        <button onclick="adjustLineTime(${index}, -0.1)" class="text-xs bg-indigo-600 px-2 rounded">-0.1</button>
+                        <span id="time-display-${index}" class="text-orange-300 font-mono text-xs w-12 text-center">${lyric.time.toFixed(1)}s</span>
+                        <button onclick="adjustLineTime(${index}, 0.1)" class="text-xs bg-indigo-600 px-2 rounded">+0.1</button>
+                    </div>
+                `;
+                lyricsContainer.insertBefore(wrapper, document.getElementById('spacer-bottom'));
+            });
+        }
+
+        function syncLyrics(currentTime) {
+            let newActiveIndex = 0;
+            for (let i = 0; i < lyricsData.length; i++) {
+                if (currentTime >= lyricsData[i].time) newActiveIndex = i;
+            }
+            if (newActiveIndex !== activeIndex) {
+                activeIndex = newActiveIndex;
+                lyricsData.forEach((_, i) => {
+                    const el = document.getElementById(`lyric-${i}`);
+                    if (!el) return;
+                    
+                    if (i === activeIndex) {
+                        el.className = 'lyric-line lyric-active text-2xl md:text-4xl lg:text-5xl font-bold text-center w-full px-4';
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else if (i < activeIndex) {
+                        el.className = 'lyric-line lyric-past text-xl md:text-3xl lg:text-4xl font-bold text-center w-full px-4';
+                    } else {
+                        el.className = 'lyric-line text-indigo-300 text-xl md:text-3xl lg:text-4xl font-bold text-center w-full px-4';
+                    }
+                });
+            }
+        }
+
+        function formatTime(s) {
+            const m = Math.floor(s / 60).toString().padStart(2, '0');
+            const sec = Math.floor(s % 60).toString().padStart(2, '0');
+            return `${m}:${sec}`;
+        }
+
+        initLyrics();
+        syncLyrics(0);
+    </script>
+</body>
+</html>
