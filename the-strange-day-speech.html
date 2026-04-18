@@ -22,11 +22,6 @@
             background: #94a3b8; 
         }
         
-        /* 隱藏預設影片外框 */
-        video:focus {
-            outline: none;
-        }
-        
         /* 啟動狀態的平滑過渡 */
         .subtitle-item {
             transition: all 0.3s ease;
@@ -48,16 +43,11 @@
         
         <!-- 左側：影片播放區 -->
         <section class="w-full md:w-1/2 bg-black flex flex-col justify-center items-center relative shadow-inner flex-shrink-0 md:flex-shrink">
-            <div class="w-full max-w-3xl px-4 py-6">
-                <video 
-                    id="mainVideo" 
-                    class="w-full rounded-lg shadow-2xl bg-slate-900 border border-slate-700" 
-                    controls 
-                    playsinline>
-                    <!-- 已將檔名更新為 the-strange-day-speech.mp4 -->
-                    <source src="the-strange-day-speech.mp4" type="video/mp4">
-                    您的瀏覽器不支援影片標籤。
-                </video>
+            <div class="w-full max-w-3xl px-4 py-6 flex-1 flex flex-col justify-center">
+                <!-- 替換為 YouTube 播放器容器 -->
+                <div class="w-full aspect-video rounded-lg shadow-2xl overflow-hidden border border-slate-700 bg-slate-900">
+                    <div id="player" class="w-full h-full"></div>
+                </div>
             </div>
             <!-- 影片控制提示 -->
             <div class="absolute bottom-4 left-0 w-full text-center text-slate-400 text-sm opacity-70">
@@ -69,8 +59,9 @@
         <section class="w-full md:w-1/2 bg-white flex flex-col shadow-[-4px_0_15px_rgba(0,0,0,0.1)] flex-1 overflow-hidden z-0">
             <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center shadow-sm">
                 <h2 class="font-semibold text-slate-700">中英雙語字幕</h2>
-                <div class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">
-                    自動同步中
+                <div class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                    YouTube 同步中
                 </div>
             </div>
             
@@ -119,10 +110,89 @@
             { start: 184, end: 195, en: "The end of this chapter. Urgh!", zh: "本章結束。呃！" }
         ];
 
+        // YouTube 播放器相關變數
+        let player;
+        let syncInterval;
+        let activeIndex = -1;
+
+        // 1. 動態載入 YouTube IFrame API
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        // 2. 當 YouTube API 準備好時，初始化播放器
+        window.onYouTubeIframeAPIReady = function() {
+            player = new YT.Player('player', {
+                videoId: 'YQhRAt7xauk', // 載入您提供的 YouTube 影片 ID
+                playerVars: {
+                    'playsinline': 1,
+                    'rel': 0 // 播放結束時不要顯示不相關的推薦影片
+                },
+                events: {
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        };
+
+        // 3. 監聽影片播放狀態來啟動/關閉字幕同步計時器
+        function onPlayerStateChange(event) {
+            // 當影片正在播放時 (YT.PlayerState.PLAYING 狀態碼為 1)
+            if (event.data == YT.PlayerState.PLAYING) {
+                if (!syncInterval) {
+                    syncInterval = setInterval(updateSubtitles, 100); // 每0.1秒偵測一次播放進度
+                }
+            } else {
+                // 暫停或停止時清除計時器，節省效能
+                clearInterval(syncInterval);
+                syncInterval = null;
+            }
+        }
+
+        // 4. 更新字幕高亮狀態的邏輯
+        function updateSubtitles() {
+            if (!player || typeof player.getCurrentTime !== 'function') return;
+            
+            const currentTime = player.getCurrentTime();
+            
+            // 尋找目前時間對應的字幕
+            const newActiveIndex = subtitles.findIndex(
+                sub => currentTime >= sub.start && currentTime < sub.end
+            );
+
+            if (newActiveIndex !== activeIndex) {
+                // 移除舊的高亮
+                if (activeIndex !== -1) {
+                    const oldEl = document.getElementById(`sub-${activeIndex}`);
+                    if (oldEl) {
+                        oldEl.classList.remove('bg-blue-50', 'border-l-blue-500', 'shadow-md', 'scale-[1.02]');
+                        oldEl.classList.add('border-transparent');
+                        oldEl.querySelector('.en-text').classList.remove('text-blue-900', 'font-bold');
+                        oldEl.querySelector('.zh-text').classList.remove('text-blue-700', 'font-bold');
+                    }
+                }
+
+                // 添加新的高亮
+                if (newActiveIndex !== -1) {
+                    const newEl = document.getElementById(`sub-${newActiveIndex}`);
+                    if (newEl) {
+                        newEl.classList.add('bg-blue-50', 'border-l-blue-500', 'shadow-md', 'scale-[1.02]');
+                        newEl.classList.remove('border-transparent');
+                        newEl.querySelector('.en-text').classList.add('text-blue-900', 'font-bold');
+                        newEl.querySelector('.zh-text').classList.add('text-blue-700', 'font-bold');
+                        
+                        // 自動滾動到可視範圍，讓字幕保持在中間
+                        newEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+
+                activeIndex = newActiveIndex;
+            }
+        }
+
+        // 5. 在頁面載入時渲染右側的字幕列表
         document.addEventListener('DOMContentLoaded', () => {
-            const video = document.getElementById('mainVideo');
             const container = document.getElementById('transcriptContainer');
-            let activeIndex = -1;
 
             // 將秒數轉換為 mm:ss 格式
             const formatTime = (seconds) => {
@@ -131,16 +201,19 @@
                 return `${m}:${s}`;
             };
 
-            // 渲染字幕列表
+            // 渲染字幕清單
             subtitles.forEach((sub, index) => {
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'subtitle-item mb-4 p-4 rounded-xl border-l-4 border-transparent cursor-pointer hover:bg-slate-100 group transition-all duration-300 origin-left';
                 itemDiv.id = `sub-${index}`;
                 
-                // 點擊字幕跳轉影片
+                // 點擊字幕跳轉 YouTube 影片
                 itemDiv.addEventListener('click', () => {
-                    video.currentTime = sub.start;
-                    video.play();
+                    if (player && typeof player.seekTo === 'function') {
+                        player.seekTo(sub.start, true);
+                        player.playVideo();
+                        updateSubtitles(); // 點擊時立即更新一次字幕狀態
+                    }
                 });
 
                 itemDiv.innerHTML = `
@@ -155,45 +228,6 @@
                     </div>
                 `;
                 container.appendChild(itemDiv);
-            });
-
-            // 監聽影片播放進度，更新字幕高亮狀態
-            video.addEventListener('timeupdate', () => {
-                const currentTime = video.currentTime;
-                
-                // 尋找目前時間對應的字幕
-                const newActiveIndex = subtitles.findIndex(
-                    sub => currentTime >= sub.start && currentTime < sub.end
-                );
-
-                if (newActiveIndex !== activeIndex) {
-                    // 移除舊的高亮
-                    if (activeIndex !== -1) {
-                        const oldEl = document.getElementById(`sub-${activeIndex}`);
-                        if (oldEl) {
-                            oldEl.classList.remove('bg-blue-50', 'border-l-blue-500', 'shadow-md', 'scale-[1.02]');
-                            oldEl.classList.add('border-transparent');
-                            oldEl.querySelector('.en-text').classList.remove('text-blue-900', 'font-bold');
-                            oldEl.querySelector('.zh-text').classList.remove('text-blue-700', 'font-bold');
-                        }
-                    }
-
-                    // 添加新的高亮
-                    if (newActiveIndex !== -1) {
-                        const newEl = document.getElementById(`sub-${newActiveIndex}`);
-                        if (newEl) {
-                            newEl.classList.add('bg-blue-50', 'border-l-blue-500', 'shadow-md', 'scale-[1.02]');
-                            newEl.classList.remove('border-transparent');
-                            newEl.querySelector('.en-text').classList.add('text-blue-900', 'font-bold');
-                            newEl.querySelector('.zh-text').classList.add('text-blue-700', 'font-bold');
-                            
-                            // 自動滾動到可視範圍，讓字幕保持在中間
-                            newEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                    }
-
-                    activeIndex = newActiveIndex;
-                }
             });
         });
     </script>
