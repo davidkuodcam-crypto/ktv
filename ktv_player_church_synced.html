@@ -50,6 +50,9 @@
 </head>
 <body class="h-screen w-screen flex flex-col items-center justify-between">
 
+    <!-- 新增：動態背景圖片圖層 (設定透明度確保歌詞可讀性，並加入平滑過渡動畫) -->
+    <div id="app-bg" class="fixed inset-0 z-[-1] bg-cover bg-center bg-no-repeat transition-all duration-700" style="opacity: 0.35;"></div>
+
     <div class="w-full max-w-4xl p-4 flex flex-col items-center space-y-3 z-10 bg-indigo-950/90 backdrop-blur-md border-b border-indigo-800">
         <h1 class="text-2xl md:text-3xl font-bold tracking-wider text-orange-300 drop-shadow-md">⛪ 新高教會愛心辦桌 KTV主題曲</h1>
         
@@ -285,6 +288,16 @@
             }
             if (newActiveIndex !== activeIndex) {
                 activeIndex = newActiveIndex;
+
+                // --- 新增：動態切換背景圖片 ---
+                const appBg = document.getElementById('app-bg');
+                if (appBg) {
+                    // 根據目前歌詞的 index (從 0 開始)，對應 1.jpg, 2.jpg...
+                    const imageNumber = activeIndex + 1;
+                    appBg.style.backgroundImage = `url('${imageNumber}.jpg')`;
+                }
+                // -----------------------------
+
                 lyricsData.forEach((_, i) => {
                     const el = document.getElementById(`lyric-${i}`);
                     if (!el) return;
