@@ -53,7 +53,12 @@
     <!-- 新增：動態背景圖片圖層 (設定透明度確保歌詞可讀性，並加入平滑過渡動畫) -->
     <div id="app-bg" class="fixed inset-0 z-[-1] bg-cover bg-center bg-no-repeat transition-all duration-700" style="opacity: 0.35;"></div>
 
-    <div class="w-full max-w-4xl p-4 flex flex-col items-center space-y-3 z-10 bg-indigo-950/90 backdrop-blur-md border-b border-indigo-800">
+    <!-- 顯示/隱藏控制面板按鈕 -->
+    <button id="togglePanelBtn" class="fixed top-4 right-4 z-50 bg-indigo-600/80 hover:bg-indigo-500 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transition duration-200 text-lg cursor-pointer" title="顯示/隱藏控制面板">
+        👁️
+    </button>
+
+    <div id="controlPanel" class="w-full max-w-4xl p-4 flex flex-col items-center space-y-3 z-10 bg-indigo-950/90 backdrop-blur-md border-b border-indigo-800 transition-all duration-300">
         <h1 class="text-2xl md:text-3xl font-bold tracking-wider text-orange-300 drop-shadow-md">⛪ 新高教會愛心辦桌 KTV主題曲</h1>
         
         <div class="flex flex-wrap justify-center items-center gap-4 w-full">
@@ -184,6 +189,8 @@
         const currentTimeDisplay = document.getElementById('currentTimeDisplay');
         const durationDisplay = document.getElementById('durationDisplay');
         const errorMessage = document.getElementById('errorMessage');
+        const controlPanel = document.getElementById('controlPanel');
+        const togglePanelBtn = document.getElementById('togglePanelBtn');
 
         let isEditMode = false;
         let activeIndex = -1;
@@ -244,6 +251,16 @@
         document.getElementById('toggleEditBtn').addEventListener('click', () => {
             isEditMode = !isEditMode;
             document.querySelectorAll('.edit-controls').forEach(el => el.classList.toggle('hidden', !isEditMode));
+        });
+
+        // 綁定顯示/隱藏面板的事件
+        togglePanelBtn.addEventListener('click', () => {
+            controlPanel.classList.toggle('hidden');
+            if (controlPanel.classList.contains('hidden')) {
+                togglePanelBtn.style.opacity = '0.5'; // 隱藏面板時，按鈕變半透明避免干擾畫面
+            } else {
+                togglePanelBtn.style.opacity = '1';
+            }
         });
 
         document.getElementById('exportBtn').addEventListener('click', () => {
