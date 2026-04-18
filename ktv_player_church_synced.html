@@ -50,8 +50,8 @@
 </head>
 <body class="h-screen w-screen flex flex-col items-center justify-between">
 
-    <!-- 新增：動態背景圖片圖層 (設定透明度確保歌詞可讀性，並加入平滑過渡動畫) -->
-    <div id="app-bg" class="fixed inset-0 z-[-1] bg-cover bg-center bg-no-repeat transition-all duration-700" style="opacity: 0.35;"></div>
+    <!-- 新增：動態背景圖片圖層 (改為 bg-contain 完整顯示照片、不透明確保清晰、移除過渡動畫避免延遲) -->
+    <div id="app-bg" class="fixed inset-0 z-[-1] bg-contain bg-center bg-no-repeat" style="opacity: 1;"></div>
 
     <!-- 顯示/隱藏控制面板按鈕 -->
     <button id="togglePanelBtn" class="fixed top-4 right-4 z-50 bg-indigo-600/80 hover:bg-indigo-500 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transition duration-200 text-lg cursor-pointer" title="顯示/隱藏控制面板">
@@ -309,8 +309,9 @@
                 // --- 新增：動態切換背景圖片 ---
                 const appBg = document.getElementById('app-bg');
                 if (appBg) {
-                    // 根據目前歌詞的 index (從 0 開始)，對應 1.jpg, 2.jpg...
-                    const imageNumber = activeIndex + 1;
+                    // 設定總照片數量為 20 張，使用 % 取餘數讓編號在 1~20 之間循環
+                    const totalPhotos = 20;
+                    const imageNumber = (activeIndex % totalPhotos) + 1;
                     appBg.style.backgroundImage = `url('${imageNumber}.jpg')`;
                 }
                 // -----------------------------
